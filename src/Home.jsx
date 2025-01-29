@@ -9,7 +9,7 @@ function Header() {
   )
 }
 
-function CardItem({ picture, title, price, available, onOrder }) {
+function CardItem({ picture, title, price, available, onAddToCart }) {
   return (
     <div className={`card ${!available ? 'card-disabled' : ''}`}>
       <img src={picture} alt={title} className="card-img" />
@@ -18,8 +18,11 @@ function CardItem({ picture, title, price, available, onOrder }) {
         <p className="card-price">{price} FCFA</p>
         <p className="card-status">{available ? 'Disponible' : 'Épuisé'}</p>
         {available && (
-          <button onClick={onOrder} className="order-button">
-            Commander
+          <button 
+            className="order-button"
+            onClick={() => onAddToCart({ picture, title, price })}
+          >
+            Ajouter au panier
           </button>
         )}
       </div>
@@ -27,12 +30,29 @@ function CardItem({ picture, title, price, available, onOrder }) {
   )
 }
 
-function MenuList({ onOrder }) {
+function MenuList({ onAddToCart }) {
   const menuItems = [
-    { id: 1, picture: "src/assets/beignet.jpeg", title: "Beignet", price: 500, available: true },
-    { id: 2, picture: "src/assets/juice.jpeg", title: "Juice", price: 700, available: true },
-    { id: 3, picture: "src/assets/shawarma.jpeg", title: "Shawarma", price: 1500, available: false },
-    // ... autres items
+    { 
+      id: 1, 
+      picture: "src/assets/beignet.jpeg", 
+      title: "Beignet", 
+      price: 500, 
+      available: true 
+    },
+    { 
+      id: 2, 
+      picture: "src/assets/juice.jpeg", 
+      title: "Juice", 
+      price: 700, 
+      available: true 
+    },
+    { 
+      id: 3, 
+      picture: "src/assets/shawarma.jpeg", 
+      title: "Shawarma", 
+      price: 1500, 
+      available: true 
+    }
   ];
 
   return (
@@ -40,11 +60,11 @@ function MenuList({ onOrder }) {
       {menuItems.map((item) => (
         <CardItem 
           key={item.id}
-          picture={item.picture} 
+          picture={item.picture}
           title={item.title}
           price={item.price}
           available={item.available}
-          onOrder={() => onOrder(item)}
+          onAddToCart={() => onAddToCart(item)}
         />
       ))}
     </div>
@@ -59,44 +79,30 @@ function Cart({ cartItems, onRemoveFromCart }) {
       {cartItems.length === 0 ? (
         <h2>Votre panier est vide</h2>
       ) : (
-        <>
+        <div className="cart-container">
           {cartItems.map((item, index) => (
             <div key={index} className="cart-item">
               <img src={item.picture} alt={item.title} className="cart-item-img" />
               <div className="cart-item-info">
                 <h3>{item.title}</h3>
                 <p>{item.price} FCFA</p>
-                <button onClick={() => onRemoveFromCart(index)}>Retirer</button>
+                <button 
+                  className="remove-button"
+                  onClick={() => onRemoveFromCart(index)}
+                >
+                  Retirer
+                </button>
               </div>
             </div>
           ))}
           <div className="cart-total">
             <h3>Total: {total} FCFA</h3>
-            <button className="checkout-button">Payer avec MTN Mobile Money</button>
+            <button className="checkout-button">
+              Payer avec MTN Mobile Money
+            </button>
           </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function History() {
-  const orderHistory = [
-    { id: 1, date: '2024-01-29', items: ['Beignet', 'Juice'], total: 1200, status: 'Livré' },
-    { id: 2, date: '2024-01-28', items: ['Shawarma'], total: 1500, status: 'Livré' },
-  ];
-
-  return (
-    <div className="list-items">
-      <h2>Historique des commandes</h2>
-      {orderHistory.map((order) => (
-        <div key={order.id} className="history-item">
-          <p>Date: {order.date}</p>
-          <p>Articles: {order.items.join(', ')}</p>
-          <p>Total: {order.total} FCFA</p>
-          <p>Statut: {order.status}</p>
         </div>
-      ))}
+      )}
     </div>
   )
 }
@@ -106,19 +112,28 @@ function Menu({ activeView, setActiveView, cartItemsCount }) {
     <div className="menu-container">
       <button 
         onClick={() => setActiveView('menu')}
-        style={{ backgroundColor: activeView === 'menu' ? '#fff' : 'transparent', color: activeView === 'menu' ? '#539df2' : '#fff' }}
+        style={{ 
+          backgroundColor: activeView === 'menu' ? '#fff' : 'transparent',
+          color: activeView === 'menu' ? '#539df2' : '#fff' 
+        }}
       >
-        🍽️ Menu du jour
+        🍽️ Menu
       </button>
       <button 
         onClick={() => setActiveView('cart')}
-        style={{ backgroundColor: activeView === 'cart' ? '#fff' : 'transparent', color: activeView === 'cart' ? '#539df2' : '#fff' }}
+        style={{ 
+          backgroundColor: activeView === 'cart' ? '#fff' : 'transparent',
+          color: activeView === 'cart' ? '#539df2' : '#fff' 
+        }}
       >
         🛒 Panier ({cartItemsCount})
       </button>
       <button 
         onClick={() => setActiveView('history')}
-        style={{ backgroundColor: activeView === 'history' ? '#fff' : 'transparent', color: activeView === 'history' ? '#539df2' : '#fff' }}
+        style={{ 
+          backgroundColor: activeView === 'history' ? '#fff' : 'transparent',
+          color: activeView === 'history' ? '#539df2' : '#fff' 
+        }}
       >
         🔍 Historique
       </button>
@@ -129,48 +144,58 @@ function Menu({ activeView, setActiveView, cartItemsCount }) {
 function HomePage() {
   const [activeView, setActiveView] = useState('menu');
   const [cartItems, setCartItems] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
 
-  const handleOrder = (item) => {
-    setCartItems([...cartItems, item]);
-    setNotifications([...notifications, `${item.title} ajouté au panier`]);
-    // Simuler la disparition de la notification après 3 secondes
+  // Fonction pour ajouter un item au panier
+  const handleAddToCart = (item) => {
+    setCartItems(prevItems => [...prevItems, item]);
+    setNotificationMessage(`${item.title} ajouté au panier`);
+    setShowNotification(true);
     setTimeout(() => {
-      setNotifications(notifications.filter(n => n !== `${item.title} ajouté au panier`));
+      setShowNotification(false);
     }, 3000);
   };
 
+  // Fonction pour retirer un item du panier
   const handleRemoveFromCart = (index) => {
-    const newCartItems = [...cartItems];
-    newCartItems.splice(index, 1);
-    setCartItems(newCartItems);
+    setCartItems(prevItems => {
+      const newItems = [...prevItems];
+      newItems.splice(index, 1);
+      return newItems;
+    });
   };
 
   const renderContent = () => {
     switch (activeView) {
       case 'menu':
-        return <MenuList onOrder={handleOrder} />;
+        return <MenuList onAddToCart={handleAddToCart} />;
       case 'cart':
-        return <Cart cartItems={cartItems} onRemoveFromCart={handleRemoveFromCart} />;
+        return (
+          <Cart 
+            cartItems={cartItems} 
+            onRemoveFromCart={handleRemoveFromCart}
+          />
+        );
       case 'history':
-        return <History />;
+        return <div className="list-items"><h2>Historique des commandes</h2></div>;
       default:
-        return <MenuList onOrder={handleOrder} />;
+        return <MenuList onAddToCart={handleAddToCart} />;
     }
   };
 
   return (
     <>
       <Header />
-      {notifications.map((notification, index) => (
-        <div key={index} className="notification">
-          {notification}
+      {showNotification && (
+        <div className="notification">
+          {notificationMessage}
         </div>
-      ))}
+      )}
       {renderContent()}
       <Menu 
-        activeView={activeView} 
-        setActiveView={setActiveView} 
+        activeView={activeView}
+        setActiveView={setActiveView}
         cartItemsCount={cartItems.length}
       />
     </>
