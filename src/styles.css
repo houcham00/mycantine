@@ -1,68 +1,274 @@
-.logo {
-    border: 2px solid black;
-    width: 80%;
-    height: 8vh;
+/* Variables CSS globales */
+:root {
+    --primary-color: #539df2;
+    --secondary-color: #1a1a1a;
+    --accent-color: #f7f7f7;
+    --text-color: #333;
+    --border-radius: 15px;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --transition: all 0.3s ease;
+  }
+  
+  /* Header */
+  .logo {
+    border: none;
+    background: linear-gradient(135deg, var(--primary-color), #2980b9);
+    width: 100%;
+    height: 70px;
     text-align: left;
-    border-radius: 15px;
-    & > h1 {
-        padding-left: 20px;
-        font-size: 32px;
-        color: #539df2;
-    }
-}
-
-.list-items {
-    max-width: 80%;
-    height: 70vh;
-    border-radius: 15px;
-    overflow-y: scroll;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
     display: flex;
-    flex-wrap: wrap;
-    & .card {
-        width: 250px;
-        height: 200px;
-        border: 2px solid black;
-        border-radius: 15px;
-        margin: 10px 15px;
-    }
-}
-
-.menu-container {
-    width: 40%;
-    height: 6vh;
-    border-radius: 15px;
+    align-items: center;
+  }
+  
+  .logo h1 {
+    padding-left: 30px;
+    font-size: 32px;
+    color: white;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  /* Menu Container */
+  .menu-container {
+    width: 60%;
+    height: 60px;
+    border-radius: var(--border-radius);
     display: flex;
     justify-content: space-around;
     align-items: center;
-    background-color: #539df2;
-    & > button {
-        color: #fff;
-        background-color: transparent;
-        font-weight: bolder;
+    background: linear-gradient(135deg, var(--primary-color), #2980b9);
+    box-shadow: var(--shadow);
+    padding: 10px;
+    margin: 20px auto;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+  }
+  
+  .menu-container button {
+    padding: 10px 20px;
+    border-radius: 25px;
+    border: none;
+    font-weight: 600;
+    transition: var(--transition);
+    min-width: 120px;
+  }
+  
+  .menu-container button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  
+  /* Liste des items */
+  .list-items {
+    max-width: 90%;
+    height: calc(100vh - 240px);
+    border-radius: var(--border-radius);
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    margin: 0 auto;
+    background-color: var(--accent-color);
+    box-shadow: var(--shadow);
+  }
+  
+  /* Scrollbar personnalisée */
+  .list-items::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .list-items::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+  }
+  
+  .list-items::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+  }
+  
+  /* Cards */
+  .card {
+    position: relative;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: var(--transition);
+    height: 320px;
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .card-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+  }
+  
+  .card-info {
+    padding: 15px;
+  }
+  
+  .card-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 8px 0;
+  }
+  
+  .card-price {
+    font-size: 16px;
+    color: var(--primary-color);
+    font-weight: 600;
+    margin: 5px 0;
+  }
+  
+  .card-status {
+    font-size: 14px;
+    color: #4CAF50;
+    margin: 5px 0;
+  }
+  
+  .order-button {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-weight: 500;
+    transition: var(--transition);
+  }
+  
+  .order-button:hover {
+    background-color: #2980b9;
+  }
+  
+  /* Panier */
+  .cart-item {
+    display: flex;
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: var(--shadow);
+  }
+  
+  .cart-item-img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+  
+  .cart-item-info {
+    margin-left: 20px;
+    flex: 1;
+  }
+  
+  .cart-total {
+    background: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-top: 20px;
+    box-shadow: var(--shadow);
+  }
+  
+  .checkout-button {
+    width: 100%;
+    padding: 15px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    margin-top: 10px;
+    transition: var(--transition);
+  }
+  
+  .checkout-button:hover {
+    background-color: #45a049;
+  }
+  
+  /* Notification */
+  .notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: var(--primary-color);
+    color: white;
+    padding: 15px 25px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    animation: slideIn 0.3s ease-out;
+    z-index: 1000;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
     }
-    & > button:hover {
-        border: none;
-        color: #539df2;
-        background-color: #fff;
+    to {
+      transform: translateX(0);
+      opacity: 1;
     }
-}
-
-.card {
-    &  > img {
-        width: 100%;
-        height: 75%;
-        border-radius: 15px;
+  }
+  
+  /* Histoire */
+  .history-item {
+    background: white;
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 15px;
+    box-shadow: var(--shadow);
+  }
+  
+  /* État désactivé */
+  .card-disabled {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+  
+  .card-disabled .card-status {
+    color: #f44336;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .menu-container {
+      width: 90%;
+      padding: 5px;
     }
-    & > h3 {
-        font-size: 16px;
+    
+    .menu-container button {
+      padding: 8px 12px;
+      font-size: 14px;
+      min-width: auto;
     }
-}
-
-@media (max-width: 412px) {
+    
     .list-items {
-        margin: 20px 0;
-        width: 100vh;
-        flex-direction: column;
-        flex-wrap: nowrap;
+      grid-template-columns: 1fr;
+      max-width: 95%;
     }
-}
+    
+    .card {
+      height: auto;
+    }
+    
+    .logo h1 {
+      font-size: 24px;
+    }
+  }
