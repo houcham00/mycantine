@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import HomePage from './Home'
-import './App.css'
+import RegistrationPage from './RegistrationPage'
+import './styles.css'
 
 function App() {
-  /* const [count, setCount] = useState(0) */
+  const [isRegistered, setIsRegistered] = useState(false)
 
   return (
-    <>
-      <HomePage></HomePage>
-    </>
+    <div>
+      {isRegistered ? (
+        <HomePage />
+      ) : (
+        <RegistrationPage setIsRegistered={setIsRegistered} />
+      )}
+    </div>
   )
 }
 
