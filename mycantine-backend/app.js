@@ -1,39 +1,38 @@
 const express = require("express");
-const mongoose = require("mongoose");
-const dotenv = require("dotenv");
-const connectDB = require('./db');
-const authRoutes = require("./routes/authRoutes");
-// const menuRoutes = require("./routes/menuRoutes");
-// const orderRoutes = require("./routes/orderRoutes");
-// const paymentRoutes = require("./routes/paymentRoutes");
-// const errorHandler = require("./middleware/errorHandler");
-
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(express.json());
+const cors = require("cors");
+const dotenv = require("dotenv");
+const connectDB = require("./db");
 
 // Routes
-// app.use("/api/auth", authRoutes);
-// app.use("/api/menus", menuRoutes);
-// app.use("/api/orders", orderRoutes);
-// app.use("/api/payments", paymentRoutes);
+const authRoutes = require("./routes/authRoutes");
+const menuRoutes = require("./routes/menuRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 
-// Gestion des erreurs
-// app.use(errorHandler);
+// Middleware
+const authMiddleware = require("./middleware/authMiddleware");
 
-// Connexion à MongoDB et démarrage du serveur
-connectDB() // Utilisation de la fonction connectDB définie dans db.js
-    .then(() => {
-        console.log("Connecté à MongoDB !");
-        app.listen(PORT, () => {
-            console.log(`Serveur démarré sur http://localhost:${PORT}`);
-        });
-    })
-    .catch((err) => {
-        console.error("Erreur de connexion à MongoDB :", err);
-        process.exit(1); // Quitter l'application en cas d'erreur
-    });
+// Configurations
+dotenv.config();
+
+// Connexion à la base de données MongoDB
+connectDB();
+
+// Middleware
+app.use(cors());
+app.use(express.json()); // Pour parser les données JSON
+
+// Routes publiques
+app.use("/api/auth", authRoutes);
+app.use("/api/menu", menuRoutes);
+
+// Routes protégées
+app.use("/api/order", authMiddleware, orderRoutes);
+app.use("/api/payment", authMiddleware, paymentRoutes);
+
+// Port d'écoute
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Serveur démarré sur le port ${PORT}`);
+});

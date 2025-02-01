@@ -1,12 +1,18 @@
-const mongoose = require('mongoose');
+// db.js
+const mongoose = require("mongoose");
+require("dotenv").config();
 
 const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log('Connected to AREA database !');
-    } catch (error) {
-        console.error('Connection Failed!', error);
-    }
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("MongoDB connecté...");
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
 };
 
 module.exports = connectDB;
