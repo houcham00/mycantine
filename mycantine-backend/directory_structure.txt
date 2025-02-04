@@ -1,0 +1,703 @@
+Structure du dossier et contenu des fichiers
+============================================
+
+Dossier: .
+  Fichier: ./.gitignore
+node_modules/
+
+-----------------------------
+
+  Fichier: ./app.js
+const express = require("express");
+const app = express();
+const cors = require("cors");
+const dotenv = require("dotenv");
+const connectDB = require("./db");
+
+// Routes
+const authRoutes = require("./routes/authRoutes");
+const menuRoutes = require("./routes/menuRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+
+// Middleware
+const authMiddleware = require("./middleware/authMiddleware");
+
+// Configurations
+dotenv.config();
+
+// Connexion à la base de données MongoDB
+connectDB();
+
+// Middleware
+app.use(cors());
+app.use(express.json()); // Pour parser les données JSON
+
+// Routes publiques
+app.use("/api/auth", authRoutes);
+app.use("/api/menu", menuRoutes);
+
+// Routes protégées
+app.use("/api/order", authMiddleware, orderRoutes);
+app.use("/api/payment", authMiddleware, paymentRoutes);
+
+// Port d'écoute
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Serveur démarré sur le port ${PORT}`);
+});
+
+-----------------------------
+
+  Fichier: ./db.js
+// db.js
+const mongoose = require("mongoose");
+require("dotenv").config();
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log("MongoDB connecté...");
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+
+-----------------------------
+
+  Fichier: ./arch.sh
+#!/bin/bash
+
+# Fichier de sortie
+output_file="directory_structure.txt"
+
+# Initialiser le fichier de sortie
+echo "Structure du dossier et contenu des fichiers" > "$output_file"
+echo "============================================" >> "$output_file"
+echo "" >> "$output_file"
+
+# Fonction pour afficher l'architecture et le contenu des fichiers
+display_directory_structure() {
+    # Parcourir récursivement les fichiers et dossiers en excluant certains types
+    find . -type d -not -path '*/node_modules/*' -not -path '*/utils/*' -not -path '*/tests/*' -not -path '*/config/*' | while read dir; do
+        echo "Dossier: $dir" >> "$output_file"
+        # Lister les fichiers dans ce dossier en excluant les types spécifiés
+        find "$dir" -maxdepth 1 -type f \
+            -not -name '*.json' \
+            -not -name '.env' \
+            -not -name '*.md' \
+            -not -path '*/node_modules/*' \
+            -not -path '*/utils/*' \
+            -not -path '*/tests/*' \
+            -not -path '*/config/*' | while read file; do
+            echo "  Fichier: $file" >> "$output_file"
+            # Afficher le contenu du fichier
+            cat "$file" >> "$output_file"
+            echo -e "\n-----------------------------\n" >> "$output_file"
+        done
+    done
+}
+
+# Appeler la fonction
+display_directory_structure
+
+echo "Processus terminé. Les informations ont été stockées dans $output_file."
+
+-----------------------------
+
+Dossier: ./config
+Dossier: ./controllers
+  Fichier: ./controllers/authController.js
+// controllers/authController.js
+const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { body, validationResult } = require("express-validator");
+
+// Inscription
+
+exports.register = [
+  body("email").isEmail().withMessage("Email invalide"),
+  body("password")
+    .isLength({ min: 6 })
+    .withMessage("Le mot de passe doit contenir au moins 6 caractères"),
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, password, role } = req.body;
+
+    try {
+      let user = await User.findOne({ email });
+
+      if (user) {
+        return res.status(400).json({ msg: "Utilisateur déjà existant" });
+      }
+
+      user = new User({
+        name,
+        email,
+        password,
+        role,
+      });
+
+      const salt = await bcrypt.genSalt(10);
+      user.password = await bcrypt.hash(password, salt);
+
+      await user.save();
+
+      const payload = {
+        user: {
+          id: user.id,
+        },
+      };
+
+      const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: "1h",
+      });
+      res.json({ token });
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send("Erreur du serveur");
+    }
+  },
+];
+
+// Connexion
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(400).json({ msg: "Utilisateur non trouvé" });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ msg: "Mot de passe incorrect" });
+    }
+
+    const payload = {
+      user: {
+        id: user.id,
+      },
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    res.json({ token });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+-----------------------------
+
+  Fichier: ./controllers/menuController.js
+// controllers/menuController.js
+const Menu = require("../models/Menu");
+
+// Récupérer tous les menus
+exports.getAllMenus = async (req, res) => {
+  try {
+    const menus = await Menu.find();
+    res.json(menus);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+// Ajouter un nouveau menu
+exports.addMenu = async (req, res) => {
+  const { name, description, price, available } = req.body;
+
+  if (price <= 0) {
+    return res.status(400).json({ msg: "Le prix doit être positif" });
+  }
+
+  try {
+    const newMenu = new Menu({ name, description, price, available });
+    await newMenu.save();
+    res.json(newMenu);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+
+// Mettre à jour un menu
+exports.updateMenu = async (req, res) => {
+  const { name, description, price, available } = req.body;
+
+  try {
+    const menu = await Menu.findById(req.params.menuId);
+
+    if (!menu) {
+      return res.status(404).json({ msg: "Menu non trouvé" });
+    }
+
+    menu.name = name || menu.name;
+    menu.description = description || menu.description;
+    menu.price = price || menu.price;
+    menu.available = available || menu.available;
+
+    await menu.save();
+    res.json(menu);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+-----------------------------
+
+  Fichier: ./controllers/orderController.js
+// controllers/orderController.js
+const Order = require("../models/Order");
+const Menu = require("../models/Menu");
+
+// Créer une commande
+exports.createOrder = async (req, res) => {
+  const { userId, items } = req.body;
+
+  try {
+    const menuItems = await Menu.find({ _id: { $in: items } });
+
+    // Vérification de la disponibilité des items
+    for (let item of menuItems) {
+      if (!item.available || item.quantity <= 0) {
+        return res
+          .status(400)
+          .json({ msg: `${item.name} n'est plus disponible` });
+      }
+    }
+
+    const totalPrice = menuItems.reduce((total, item) => total + item.price, 0);
+
+    // Réduction de la quantité des plats
+    for (let item of menuItems) {
+      if (!item.isMeal && item.quantity > 0) {
+        item.quantity -= 1;
+        await item.save();
+      }
+    }
+
+    const order = new Order({ userId, items, totalPrice });
+    await order.save();
+    res.status(201).json(order);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+
+// Récupérer toutes les commandes
+exports.getOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().populate("items").populate("userId");
+    res.json(orders);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+// Mettre à jour le statut d'une commande
+exports.updateOrderStatus = async (req, res) => {
+  const { orderId } = req.params;
+  const { status } = req.body;
+
+  try {
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ msg: "Commande non trouvée" });
+    }
+
+    order.status = status;
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+-----------------------------
+
+  Fichier: ./controllers/paymentController.js
+// controllers/paymentController.js
+const Transaction = require("../models/Transaction");
+const Order = require("../models/Order");
+const { initiateRequestToPay } = require("../services/paymentService");
+
+exports.createTransaction = async (req, res) => {
+  const { orderId, amount } = req.body;
+
+  try {
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ msg: "Commande non trouvée" });
+    }
+
+    // Lancer la RequestToPay via MoMo
+    const paymentResponse = await initiateRequestToPay(amount, orderId);
+
+    if (paymentResponse.status === "SUCCESS") {
+      // Enregistrer la transaction en base
+      const transaction = new Transaction({
+        orderId,
+        amount,
+        status: "completed", // Ou "pending" si tu souhaites vérifier ultérieurement
+      });
+      await transaction.save();
+      return res
+        .status(201)
+        .json({ transaction, referenceId: paymentResponse.referenceId });
+    } else {
+      return res
+        .status(400)
+        .json({ msg: "Paiement échoué", error: paymentResponse.error });
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+// Récupérer toutes les transactions
+exports.getTransactions = async (req, res) => {
+  try {
+    const transactions = await Transaction.find().populate("orderId");
+    res.json(transactions);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+// Mettre à jour le statut d'une transaction
+exports.updateTransactionStatus = async (req, res) => {
+  const { transactionId } = req.params;
+  const { status } = req.body;
+
+  try {
+    const transaction = await Transaction.findById(transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({ msg: "Transaction non trouvée" });
+    }
+
+    transaction.status = status;
+    await transaction.save();
+    res.json(transaction);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+
+-----------------------------
+
+Dossier: ./middleware
+  Fichier: ./middleware/authMiddleware.js
+// middleware/authMiddleware.js
+const jwt = require("jsonwebtoken");
+
+module.exports = (req, res, next) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    return res.status(401).json({ msg: "Aucun token trouvé, accès refusé" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded.user;
+
+    // Vérifier si l'utilisateur est un admin (ajoutez cette logique si nécessaire)
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ msg: "Accès interdit" });
+    }
+
+    next();
+  } catch (err) {
+    res.status(401).json({ msg: "Token invalide" });
+  }
+};
+
+-----------------------------
+
+Dossier: ./models
+  Fichier: ./models/Menu.js
+// models/Menu.js
+const mongoose = require("mongoose");
+
+const menuSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String, required: true },
+  price: { type: Number, required: true },
+  available: { type: Boolean, default: true },
+  isMeal: { type: Boolean, default: false }, // True if it's a meal (non-quantifiable)
+  quantity: { type: Number, default: 0 }, // For quantifiable items (like drinks, biscuits, etc.)
+});
+
+module.exports = mongoose.model("Menu", menuSchema);
+
+-----------------------------
+
+  Fichier: ./models/Order.js
+// models/Order.js
+const mongoose = require("mongoose");
+
+const orderSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  items: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "Menu", required: true },
+  ],
+  totalPrice: { type: Number, required: true },
+  status: {
+    type: String,
+    enum: ["pending", "completed", "cancelled"],
+    default: "pending",
+  },
+  createdAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model("Order", orderSchema);
+
+-----------------------------
+
+  Fichier: ./models/Transaction.js
+// models/Transaction.js
+const mongoose = require("mongoose");
+
+const transactionSchema = new mongoose.Schema({
+  orderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Order",
+    required: true,
+  },
+  amount: { type: Number, required: true },
+  status: {
+    type: String,
+    enum: ["pending", "completed", "failed"],
+    default: "pending",
+  },
+  createdAt: { type: Date, default: Date.now },
+});
+
+module.exports = mongoose.model("Transaction", transactionSchema);
+
+-----------------------------
+
+  Fichier: ./models/User.js
+// models/User.js
+const mongoose = require("mongoose");
+
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: {
+    type: String,
+    enum: ["student", "vendor", "admin"],
+    default: "student",
+  },
+});
+
+module.exports = mongoose.model("User", userSchema);
+
+-----------------------------
+
+Dossier: ./routes
+  Fichier: ./routes/authRoutes.js
+// routes/authRoutes.js
+const express = require("express");
+const router = express.Router();
+const { register, login } = require("../controllers/authController");
+
+router.post("/register", register);
+router.post("/login", login);
+
+module.exports = router;
+
+-----------------------------
+
+  Fichier: ./routes/menuRoutes.js
+// routes/menuRoutes.js
+const express = require("express");
+const router = express.Router();
+const { getAllMenus, addMenu } = require("../controllers/menuController");
+
+router.get("/", getAllMenus);
+router.post("/", addMenu);
+
+module.exports = router;
+
+-----------------------------
+
+  Fichier: ./routes/orderRoutes.js
+// routes/orderRoutes.js
+const express = require("express");
+const router = express.Router();
+const {
+  createOrder,
+  getOrders,
+  updateOrderStatus,
+} = require("../controllers/orderController");
+
+// Route pour créer une commande
+router.post("/", createOrder);
+
+// Route pour récupérer toutes les commandes
+router.get("/", getOrders);
+
+// Route pour mettre à jour le statut d'une commande (ex: de "pending" à "completed")
+router.put("/:orderId/status", updateOrderStatus);
+
+module.exports = router;
+
+-----------------------------
+
+  Fichier: ./routes/paymentRoutes.js
+// routes/paymentRoutes.js
+const express = require("express");
+const router = express.Router();
+const {
+  createTransaction,
+  getTransactions,
+  updateTransactionStatus,
+} = require("../controllers/paymentController");
+
+// Route pour créer une transaction
+router.post("/", createTransaction);
+
+// Route pour récupérer toutes les transactions
+router.get("/", getTransactions);
+
+// Route pour mettre à jour le statut d'une transaction (ex: de "pending" à "completed")
+router.put("/:transactionId/status", updateTransactionStatus);
+
+module.exports = router;
+
+-----------------------------
+
+Dossier: ./services
+  Fichier: ./services/paymentService.js
+// services/paymentService.js
+const axios = require("axios");
+const { v4: uuidv4 } = require("uuid");
+const referenceId = uuidv4();
+require("dotenv").config();
+
+/**
+ * Récupère le token d'accès depuis l'API MoMo.
+ * Cette étape utilise l'authentification Basic avec MOMO_USER_ID et MOMO_API_KEY.
+ */
+const getMoMoToken = async () => {
+  try {
+    const response = await axios.post(
+      // On retire le segment /requesttopay de la base URL pour obtenir l'URL du token
+      `${process.env.MOMO_BASE_URL.replace("/requesttopay", "")}/token/`,
+      {},
+      {
+        headers: {
+          "Ocp-Apim-Subscription-Key": process.env.MOMO_SUBSCRIPTION_KEY,
+          Authorization:
+            "Basic " +
+            Buffer.from(
+              `${referenceId}:${process.env.MOMO_API_KEY}`
+            ).toString("base64"),
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data.access_token;
+  } catch (error) {
+    console.error(
+      "Erreur lors de la récupération du token MoMo :",
+      error.response?.data || error.message
+    );
+    throw error;
+  }
+};
+
+/**
+ * Initie une RequestToPay auprès de l'API MoMo.
+ * @param {string|number} amount - Montant à débiter
+ * @param {string} orderId - Identifiant externe de la transaction (pour la réconciliation)
+ * @returns {Object} Résultat contenant le status et le X-Reference-Id généré
+ */
+const initiateRequestToPay = async (amount, orderId) => {
+  try {
+    // 1. Récupérer le token d'accès
+    const accessToken = await getMoMoToken();
+
+    // 2. Générer un identifiant unique (UUID) pour la transaction
+    //const referenceId = uuidv4();
+
+    // 3. Préparer le payload de la RequestToPay
+    const requestPayload = {
+      amount: amount.toString(), // Le montant doit être une chaîne de caractères
+      currency: process.env.MOMO_CURRENCY, // Devise, ex: "XOF"
+      externalId: orderId, // Référence externe pour la transaction
+      payer: {
+        partyIdType: "MSISDN", // Type d'identifiant (ici numéro de mobile)
+        partyId: process.env.MOMO_PARTY_ID, // Numéro de mobile du payeur
+      },
+      payerMessage: `Paiement de la commande ${orderId}`,
+      payeeNote: "Merci pour votre achat",
+    };
+
+    // 4. Envoyer la requête RequestToPay
+    const response = await axios.post(
+      `${process.env.MOMO_BASE_URL}/requesttopay`,
+      requestPayload,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "X-Reference-Id": referenceId,
+          "X-Target-Environment": process.env.MOMO_TARGET_ENV,
+          "Ocp-Apim-Subscription-Key": process.env.MOMO_SUBSCRIPTION_KEY,
+          "Content-Type": "application/json",
+          // Optionnel : "X-Callback-Url": "https://ton-domaine.com/callback"
+        },
+      }
+    );
+
+    console.log("RequestToPay envoyée avec succès !");
+    return {
+      status: "SUCCESS",
+      referenceId,
+      message: "RequestToPay initiée avec succès.",
+    };
+  } catch (error) {
+    console.error(
+      "Erreur lors de l'initiation de RequestToPay :",
+      error.response?.data || error.message
+    );
+    return { status: "FAILED", error: error.response?.data || error.message };
+  }
+};
+
+module.exports = {
+  getMoMoToken,
+  initiateRequestToPay,
+};

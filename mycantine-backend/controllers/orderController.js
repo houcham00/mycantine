@@ -9,21 +9,24 @@ exports.createOrder = async (req, res) => {
   try {
     const menuItems = await Menu.find({ _id: { $in: items } });
 
-    if (menuItems.length !== items.length) {
-      return res
-        .status(400)
-        .json({ msg: "Un ou plusieurs plats sont invalides" });
+    // Vérification de la disponibilité des items
+    for (let item of menuItems) {
+      if (!item.available || item.quantity <= 0) {
+        return res
+          .status(400)
+          .json({ msg: `${item.name} n'est plus disponible` });
+      }
     }
 
     const totalPrice = menuItems.reduce((total, item) => total + item.price, 0);
 
-    // Met à jour la quantité pour les articles quantifiables
-    menuItems.forEach(async (item) => {
+    // Réduction de la quantité des plats
+    for (let item of menuItems) {
       if (!item.isMeal && item.quantity > 0) {
-        item.quantity -= 1; // Réduit la quantité des articles non repas
+        item.quantity -= 1;
         await item.save();
       }
-    });
+    }
 
     const order = new Order({ userId, items, totalPrice });
     await order.save();
@@ -33,6 +36,7 @@ exports.createOrder = async (req, res) => {
     res.status(500).send("Erreur du serveur");
   }
 };
+
 
 // Récupérer toutes les commandes
 exports.getOrders = async (req, res) => {

@@ -16,6 +16,10 @@ exports.getAllMenus = async (req, res) => {
 exports.addMenu = async (req, res) => {
   const { name, description, price, available } = req.body;
 
+  if (price <= 0) {
+    return res.status(400).json({ msg: "Le prix doit être positif" });
+  }
+
   try {
     const newMenu = new Menu({ name, description, price, available });
     await newMenu.save();
@@ -25,6 +29,7 @@ exports.addMenu = async (req, res) => {
     res.status(500).send("Erreur du serveur");
   }
 };
+
 
 // Mettre à jour un menu
 exports.updateMenu = async (req, res) => {

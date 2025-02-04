@@ -1,0 +1,184 @@
+Pour compléter l'implémentation du paiement avec **MTN Mobile Money (MoMo)**, il vous faudra intégrer l'API de MTN MoMo dans votre backend afin de gérer les paiements des utilisateurs lors de la commande de repas.
+
+Voici les étapes nécessaires pour implémenter le paiement **MoMo** dans votre backend :
+
+### **1. Inscription à l'API MoMo**
+
+Avant d’intégrer l’API, vous devez vous inscrire sur le [portail des développeurs MoMo](https://momodeveloper.mtn.com/) et obtenir vos **identifiants API**, comme la **clé d'abonnement** et l'**API User/Key**.
+
+### **2. Configuration de l'API MoMo**
+
+L'API MoMo utilise le système **OAuth 2.0** pour s'authentifier et obtenir un token d'accès. Vous devrez créer une fonction qui envoie une requête pour obtenir un token d’accès, puis utiliser ce token pour initier un paiement.
+
+### **3. Création d'une fonction pour l'authentification (OAuth 2.0)**
+
+La première étape consiste à obtenir un **access token** en envoyant une requête à l'API de MoMo.
+
+```javascript
+const axios = require('axios');
+
+const getAccessToken = async () => {
+  const url = 'https://sandbox.momodeveloper.mtn.com/collection/token/';
+  
+  const headers = {
+    'Authorization': 'Basic ' + Buffer.from(`${process.env.MOMO_API_KEY}:${process.env.MOMO_API_SECRET}`).toString('base64'),
+    'Content-Type': 'application/x-www-form-urlencoded'
+  };
+  
+  const data = new URLSearchParams();
+  data.append('grant_type', 'client_credentials');
+
+  try {
+    const response = await axios.post(url, data, { headers });
+    return response.data.access_token;
+  } catch (err) {
+    console.error('Error fetching access token:', err.response ? err.response.data : err.message);
+    throw new Error('Error fetching access token');
+  }
+};
+```
+
+### **4. Fonction pour initier une transaction**
+
+Une fois que vous avez l'**access token**, vous pouvez l’utiliser pour créer une **requête de paiement** en envoyant une requête POST à l'API MoMo.
+
+```javascript
+const initiatePaymentWithMoMo = async (amount, orderId) => {
+  const accessToken = await getAccessToken();
+  
+  const url = 'https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay';
+  const headers = {
+    'Authorization': `Bearer ${accessToken}`,
+    'X-Reference-Id': `order-${orderId}`,
+    'X-Target-Environment': 'sandbox',
+    'Content-Type': 'application/json'
+  };
+
+  const body = {
+    amount: amount,
+    currency: 'USD', // Choisissez la devise que vous souhaitez utiliser
+    payer: {
+      partyIdType: 'MSISDN',
+      partyId: '225070123456'  // Numéro du téléphone mobile de l'utilisateur
+    },
+    payerMessage: 'Paiement pour commande',
+    payeeNote: 'Règlement de la commande MyCantine'
+  };
+
+  try {
+    const response = await axios.post(url, body, { headers });
+    return response.data;
+  } catch (err) {
+    console.error('Error initiating payment:', err.response ? err.response.data : err.message);
+    throw new Error('Error initiating payment');
+  }
+};
+```
+
+Cette fonction enverra une requête de paiement à **MTN MoMo**. Les paramètres principaux sont :
+- **amount** : Le montant à payer.
+- **payer** : Les informations du payeur, en l’occurrence, l'utilisateur qui passe la commande (ici, un numéro MSISDN).
+- **payerMessage** et **payeeNote** : Messages à afficher dans le système MoMo pour donner des détails sur la transaction.
+
+### **5. Gérer la réponse et suivre le statut du paiement**
+
+Après l'initiation d'un paiement, MoMo retournera une réponse avec un **status** et un **transaction ID**. Il est important de suivre l'état de la transaction, soit par **callback** (si configurée) ou en envoyant une autre requête GET pour obtenir l'état de la transaction.
+
+#### Exemple de suivi avec une requête GET :
+
+```javascript
+const checkPaymentStatus = async (transactionId) => {
+  const accessToken = await getAccessToken();
+  
+  const url = `https://sandbox.momodeveloper.mtn.com/collection/v1_0/requesttopay/${transactionId}`;
+  const headers = {
+    'Authorization': `Bearer ${accessToken}`,
+    'X-Reference-Id': `order-${transactionId}`,
+    'Content-Type': 'application/json'
+  };
+
+  try {
+    const response = await axios.get(url, { headers });
+    return response.data;
+  } catch (err) {
+    console.error('Error checking payment status:', err.response ? err.response.data : err.message);
+    throw new Error('Error checking payment status');
+  }
+};
+```
+
+### **6. Enregistrer la transaction et mettre à jour l'état**
+
+Après avoir vérifié le statut du paiement, vous devez mettre à jour la base de données de l'utilisateur et de la commande pour enregistrer si le paiement a été réussi ou échoué.
+
+Dans votre `paymentController.js`, vous pourriez intégrer l’appel à `initiatePaymentWithMoMo` et `checkPaymentStatus` de cette manière :
+
+```javascript
+exports.createTransaction = async (req, res) => {
+  const { orderId, amount } = req.body;
+
+  try {
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ msg: "Commande non trouvée" });
+    }
+
+    // Appeler l'API MoMo pour initier le paiement
+    const paymentResponse = await initiatePaymentWithMoMo(amount, orderId);
+
+    // Assurez-vous que la transaction est réussie
+    if (paymentResponse.status === "PENDING") {
+      // Créez la transaction dans votre base de données
+      const transaction = new Transaction({
+        orderId,
+        amount,
+        status: 'pending'
+      });
+      await transaction.save();
+
+      res.status(201).json({
+        message: 'Paiement initié avec succès. Veuillez vérifier votre téléphone.',
+        transactionId: paymentResponse.id
+      });
+    } else {
+      res.status(400).json({ msg: "Erreur lors de l'initiation du paiement" });
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Erreur du serveur");
+  }
+};
+```
+
+### **7. Gestion des callbacks (si nécessaire)**
+
+MoMo envoie un callback avec l'état de la transaction une fois qu'elle est traitée (approuvée ou rejetée). Assurez-vous d’avoir une route pour recevoir ce callback et traiter la réponse pour mettre à jour l’état du paiement dans votre base de données.
+
+```javascript
+// Exemple de gestion de callback
+app.post("/api/payment/callback", (req, res) => {
+  const { transactionId, status } = req.body;
+
+  // Traitez l'état de la transaction
+  if (status === 'SUCCESS') {
+    // Mettre à jour la transaction dans la base de données
+    Transaction.updateOne({ transactionId }, { status: 'completed' });
+    // Effectuez d'autres actions (par exemple, confirmer la commande)
+  }
+
+  res.status(200).send("Callback reçu");
+});
+```
+
+---
+
+### **Conclusion**
+
+L'intégration de MTN MoMo implique plusieurs étapes :
+1. Obtenir un **access token** via OAuth 2.0.
+2. Utiliser ce token pour initier un paiement via l'API MoMo.
+3. Suivre l'état de la transaction, soit via une requête GET, soit via un **callback**.
+4. Mettre à jour votre base de données avec le statut de la transaction et ajuster l’état des commandes en conséquence.
+
+N'oubliez pas de tester votre implémentation dans l'environnement **sandbox** de MoMo avant de passer en production.
